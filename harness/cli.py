@@ -18,7 +18,7 @@ def main():
 
     p_init = sub.add_parser("init", help="initialize run plan into workspace")
     p_init.add_argument("--suite", required=True)
-    p_init.add_argument("--api-base-url", default="http://127.0.0.1:8000")
+    p_init.add_argument("--api-base-url", default="http://127.0.0.1:8001")
     p_init.add_argument("--report-dir", default="harness/report")
     p_init.add_argument("--workspace-root", default="harness/workspace")
     p_init.add_argument("--run-id", default="")
@@ -30,7 +30,7 @@ def main():
 
     p_run = sub.add_parser("run", help="init then execute")
     p_run.add_argument("--suite", required=True)
-    p_run.add_argument("--api-base-url", default="http://127.0.0.1:8000")
+    p_run.add_argument("--api-base-url", default="http://127.0.0.1:8001")
     p_run.add_argument("--report-dir", default="harness/report")
     p_run.add_argument("--workspace-root", default="harness/workspace")
     p_run.add_argument("--run-id", default="")

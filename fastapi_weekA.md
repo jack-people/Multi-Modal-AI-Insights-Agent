@@ -8,11 +8,11 @@
 
 ## 运行方式
 - 启动命令（示例）：
-  - `uvicorn app.api.main:app --host 0.0.0.0 --port 8000 --reload`
+  - `uvicorn app.api.main:app --host 0.0.0.0 --port 8001 --reload`
 
 ## 请求示例
 ```bash
-curl -X POST "http://127.0.0.1:8000/v1/sessions/demo/chat" \
+curl -X POST "http://127.0.0.1:8001/v1/sessions/demo/chat" \
   -H "Content-Type: application/json" \
   -d "{\"message\":\"请总结最近多模态Agent进展\"}"
 ```

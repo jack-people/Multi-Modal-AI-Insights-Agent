@@ -81,6 +81,7 @@ VISION_AUTO_ANALYZE_DEFAULT = _env_bool("VISION_AUTO_ANALYZE_DEFAULT", True)
 # ========== 行动能力配置（Week6） ==========
 ACTION_AUDIT_LOG_PATH = os.getenv("ACTION_AUDIT_LOG_PATH", "audit.log")
 ACTION_AUTO_EXECUTE_MAX_RISK = os.getenv("ACTION_AUTO_EXECUTE_MAX_RISK", "low").strip().lower()
+MM_MCP_DEFAULT_SESSION_ID = os.getenv("MM_MCP_DEFAULT_SESSION_ID", "dsh-default").strip() or "dsh-default"
 
 # ========== 用户偏好记忆配置（Week7） ==========
 USER_PROFILE_STORE_PATH = os.getenv("USER_PROFILE_STORE_PATH", "databank/user_profiles.json")
@@ -133,8 +134,8 @@ def validate_config(strict: bool = True) -> list[str]:
         errors.append("VOICE_TIMEOUT_SEC 必须大于 0")
     if VISION_TIMEOUT_SEC <= 0:
         errors.append("VISION_TIMEOUT_SEC 必须大于 0")
-    if ACTION_AUTO_EXECUTE_MAX_RISK not in {"low", "medium", "high"}:
-        errors.append("ACTION_AUTO_EXECUTE_MAX_RISK 必须是 low/medium/high 之一")
+    if ACTION_AUTO_EXECUTE_MAX_RISK not in {"none", "low", "medium", "high"}:
+        errors.append("ACTION_AUTO_EXECUTE_MAX_RISK 必须是 none/low/medium/high 之一")
 
     if VOICE_ENABLED:
         if not _is_valid_http_url(VOICE_ASR_URL):

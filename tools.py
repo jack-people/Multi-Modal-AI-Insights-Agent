@@ -12,10 +12,16 @@ from config import (
     TOOL_RETRY_BACKOFF,
     ACTION_AUTO_EXECUTE_MAX_RISK,
 )
-from runtime_context import log_event
+from runtime_context import log_event, is_force_action_confirm
 from actions import append_audit_log, should_auto_execute, execute_confirmed_action
 
 HTTP_SESSION = requests.Session()
+
+
+def _allow_auto_execute(risk: str) -> bool:
+    if is_force_action_confirm():
+        return False
+    return should_auto_execute(risk, ACTION_AUTO_EXECUTE_MAX_RISK)
 
 
 def _tool_result(ok: bool, source: str, query: str, data: str = "", error: str = "") -> str:
@@ -301,7 +307,7 @@ def action_write_report_file(filename: str, content: str) -> str:
     confirm_payload = {"filename": filename, "content": content}
     log_event(source, "start", meta={"filename": filename, "chars": len(content or "")})
     try:
-        if not should_auto_execute(risk, ACTION_AUTO_EXECUTE_MAX_RISK):
+        if not _allow_auto_execute(risk):
             message = "当前策略不允许自动执行该动作，请用户确认后再执行。"
             append_audit_log(source, risk, "pending_confirmation", message, {"filename": filename})
             return _pending_action_response(source, risk, query, message, confirm_payload)
@@ -336,7 +342,7 @@ def action_create_email_draft(recipient: str, subject: str, body: str) -> str:
     confirm_payload = {"recipient": recipient, "subject": subject, "body": body}
     log_event(source, "start", meta={"recipient": recipient, "subject_len": len(subject or "")})
     try:
-        if not should_auto_execute(risk, ACTION_AUTO_EXECUTE_MAX_RISK):
+        if not _allow_auto_execute(risk):
             message = "邮件草稿属于中风险动作，已生成待确认任务。"
             append_audit_log(source, risk, "pending_confirmation", message, {"recipient": recipient, "subject": subject})
             return _pending_action_response(source, risk, query, message, confirm_payload)
@@ -368,7 +374,7 @@ def action_run_shell_command(command: str) -> str:
     risk = "high"
     query = command
     confirm_payload = {"command": command}
-    if not should_auto_execute(risk, ACTION_AUTO_EXECUTE_MAX_RISK):
+    if not _allow_auto_execute(risk):
         message = "高风险动作默认不自动执行。请用户明确确认后再执行。"
         append_audit_log(source, risk, "pending_confirmation", message, {"command": command})
         log_event(source, "blocked", meta={"reason": "high_risk_requires_confirmation"})

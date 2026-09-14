@@ -5,7 +5,7 @@ from typing import Any
 @dataclass
 class RunConfig:
     suite_path: str
-    api_base_url: str = "http://127.0.0.1:8000"
+    api_base_url: str = "http://127.0.0.1:8001"
     report_dir: str = "harness/report"
     workspace_root: str = "harness/workspace"
     run_id: str | None = None

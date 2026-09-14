@@ -64,11 +64,15 @@ class FastApiApiTests(unittest.TestCase):
 
         app = api_main.create_api_app()
         app.dependency_overrides[get_agent_runner] = lambda: _FakeRunner()
-        self.client = TestClient(app)
+        self._cm = TestClient(app)
+        self.client = self._cm.__enter__()
         self.app = app
 
     def tearDown(self):
-        self.app.dependency_overrides.clear()
+        if getattr(self, "_cm", None):
+            self._cm.__exit__(None, None, None)
+        if getattr(self, "app", None):
+            self.app.dependency_overrides.clear()
         api_main.API_AUTH_ENABLED = self._old_auth_enabled
         api_main.API_AUTH_KEY = self._old_auth_key
         api_main.API_RATE_LIMIT_PER_MIN = self._old_rate
@@ -108,8 +112,7 @@ class FastApiApiTests(unittest.TestCase):
         api_main.API_AUTH_ENABLED = True
         app = api_main.create_api_app()
         app.dependency_overrides[get_agent_runner] = lambda: _FakeRunner()
-        client = TestClient(app)
-        try:
+        with TestClient(app) as client:
             no_key_resp = client.post("/v1/sessions/demo/chat", json={"message": "hello"})
             self.assertEqual(no_key_resp.status_code, 401)
             self.assertEqual(no_key_resp.json()["error_code"], "MM401_UNAUTHORIZED")
@@ -120,22 +123,19 @@ class FastApiApiTests(unittest.TestCase):
                 json={"message": "hello"},
             )
             self.assertEqual(with_key_resp.status_code, 200)
-        finally:
-            app.dependency_overrides.clear()
+        app.dependency_overrides.clear()
 
     def test_rate_limit(self):
         api_main.API_RATE_LIMIT_PER_MIN = 1
         app = api_main.create_api_app()
         app.dependency_overrides[get_agent_runner] = lambda: _FakeRunner()
-        client = TestClient(app)
-        try:
+        with TestClient(app) as client:
             first = client.post("/v1/sessions/demo/chat", json={"message": "first"})
             self.assertEqual(first.status_code, 200)
             second = client.post("/v1/sessions/demo/chat", json={"message": "second"})
             self.assertEqual(second.status_code, 429)
             self.assertEqual(second.json()["error_code"], "MM429_RATE_LIMITED")
-        finally:
-            app.dependency_overrides.clear()
+        app.dependency_overrides.clear()
 
 
 if __name__ == "__main__":

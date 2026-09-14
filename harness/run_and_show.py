@@ -9,7 +9,7 @@ def main():
     parser = argparse.ArgumentParser(description="Run/Resume harness then print markdown report")
     parser.add_argument("--mode", choices=["run", "exec", "resume"], default="run")
     parser.add_argument("--suite", default="harness/cases/ci_gate.json")
-    parser.add_argument("--api-base-url", default="http://127.0.0.1:8000")
+    parser.add_argument("--api-base-url", default="http://127.0.0.1:8001")
     parser.add_argument("--report-dir", default="harness/report")
     parser.add_argument("--workspace-root", default="harness/workspace")
     parser.add_argument("--run-id", default="")

@@ -109,7 +109,7 @@ env:
 
 1. `McpService` 的 runner 从 `AgentRunner()` 换成 `app.api.deps.get_agent_runner()`（复用 FastAPI 那一个实例）
 2. `create_api_app()` 里 `app.mount("/v1/mcp", mcp.streamable_http_app())`，并把 `mcp.session_manager.run()` 接进 app 的 lifespan
-3. dsh 侧改 `transport: streamable-http` + `url: http://127.0.0.1:8000/v1/mcp` + `headers: {X-API-Key: ...}`
+3. dsh 侧改 `transport: streamable-http` + `url: http://127.0.0.1:8001/v1/mcp` + `headers: {X-API-Key: ...}`
 
 一次解决四个问题：
 
@@ -118,7 +118,7 @@ env:
 - **密钥/环境变量剔除问题整体消失**（2.2 不用再讨论）。
 - **顺带复用 `/v1/` 前缀上已有的鉴权与限流中间件**（`app/api/main.py:71`），dsh 用 `headers` 传 `X-API-Key` 就行。
 
-唯一实现坑：**必须把 `session_manager.run()` 接到 lifespan**，否则第一次 MCP 请求会报 task group 未初始化。代价是 dsh 不再托管 Python 生命周期，你要自己保证 `:8000` 在跑 —— dsh 的 `reconnect` 默认开启，掉线会自动重连并重新同步工具。
+唯一实现坑：**必须把 `session_manager.run()` 接到 lifespan**，否则第一次 MCP 请求会报 task group 未初始化。代价是 dsh 不再托管 Python 生命周期，你要自己保证 `:8001` 在跑 —— dsh 的 `reconnect` 默认开启，掉线会自动重连并重新同步工具。
 
 ### 3.2 不要让模型来填 `session_id`
 

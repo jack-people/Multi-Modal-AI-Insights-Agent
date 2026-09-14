@@ -22,8 +22,8 @@ ddgs
 streamlit
 
 # MCP server runtime
-# mcp 2.x 把 FastMCP 改名为 MCPServer，mcp_server.py 仍是 v1 写法
-mcp<2
+# mcp 2.x 把 FastMCP 改名为 MCPServer；streamable-http 需要 1.9+
+mcp>=1.9,<2
 
 # Compatibility for Python < 3.11
 typing-extensions

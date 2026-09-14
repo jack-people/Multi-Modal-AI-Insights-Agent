@@ -26,15 +26,36 @@ from app.api.routes.sessions import router as sessions_router
 from app.api.routes.actions import router as actions_router
 from app.api.exceptions import ApiError
 from app.api.middleware import FixedWindowRateLimiter
-from runtime_context import log_event
+from runtime_context import log_event, set_request_id, set_session_hint
+from contextlib import asynccontextmanager
 
 
 def create_api_app() -> FastAPI:
     validate_config(strict=False)
+
+    dsh_mcp = None
+    try:
+        from mcp.server.fastmcp import FastMCP  # noqa: F401
+        from mcp_tools.factory import create_dsh_mcp
+
+        dsh_mcp, _, _ = create_dsh_mcp()
+    except ModuleNotFoundError as exc:
+        log_event("fastapi_api", "mcp_unavailable", meta={"error": str(exc)})
+
+    @asynccontextmanager
+    async def lifespan(_app: FastAPI):
+        if dsh_mcp is None:
+            yield
+            return
+        dsh_mcp.streamable_http_app()
+        async with dsh_mcp.session_manager.run():
+            yield
+
     app = FastAPI(
         title="Multi-Modal AI Insights Agent API",
         version="0.1.0",
-        description="Week D FastAPI：统一错误码 + 流式协议 + 鉴权/限流/请求追踪",
+        description="Week D FastAPI：统一错误码 + 流式协议 + 鉴权/限流/请求追踪；/v1/mcp 供 dsh 使用",
+        lifespan=lifespan,
     )
     limiter = FixedWindowRateLimiter(API_RATE_LIMIT_PER_MIN)
 
@@ -57,6 +78,9 @@ def create_api_app() -> FastAPI:
     async def api_guard(request: Request, call_next):
         start = time.perf_counter()
         request_id = request.headers.get("X-Request-Id") or uuid.uuid4().hex[:16]
+        set_request_id(request_id)
+        session_hint = request.headers.get("X-Session-Id") or request.headers.get("mcp-session-id") or ""
+        set_session_hint(session_hint)
         path = request.url.path
 
         def _json_error(status_code: int, error_code: str, message: str, detail: dict | None = None):
@@ -153,6 +177,11 @@ def create_api_app() -> FastAPI:
     app.include_router(chat_router)
     app.include_router(sessions_router)
     app.include_router(actions_router)
+    if dsh_mcp is not None:
+        from mcp_tools.http import _asgi_app
+
+        app.mount("/v1/mcp", _asgi_app(dsh_mcp))
+        app.state.dsh_mcp = dsh_mcp
     return app
 
 
@@ -163,7 +192,7 @@ if __name__ == "__main__":
     uvicorn.run(
         "app.api.main:app",
         host="0.0.0.0",
-        port=8000,
+        port=8001,
         reload=True,
     )
 
