@@ -6,6 +6,8 @@
 
 **结论：可行，但不要整仓替换。** dsh 当对话与调度层，现有 Python 当领域执行层，中间只用已有 MCP。LangGraph、论文抓取、动作审批第一期不动。
 
+> 本计划的评审结论、需要修正的描述、以及修订后的执行顺序见 [`dsh_hybrid_plan_review.md`](dsh_hybrid_plan_review.md)。
+
 ---
 
 ## 1. 职责切分
