@@ -1,0 +1,82 @@
+{
+  "suite": "ci_gate",
+  "description": "更严格且更稳定的门禁套件（默认不依赖外部HTTP服务）",
+  "cases": [
+    {
+      "id": "gate_local_healthz",
+      "entry": "local",
+      "action": "healthz",
+      "expect": { "ok": true, "status_code": 200, "max_latency_ms": 1000 }
+    },
+    {
+      "id": "gate_local_chat",
+      "entry": "local",
+      "action": "chat",
+      "session_id": "gate_local",
+      "message": "请用一句话说明多模态Agent的核心价值",
+      "expect": { "ok": true, "contains_keys": ["answer"], "max_latency_ms": 120000 }
+    },
+    {
+      "id": "gate_local_state",
+      "entry": "local",
+      "action": "state",
+      "session_id": "gate_local",
+      "expect": { "ok": true, "contains_keys": ["task_runtime", "last_answer"] }
+    },
+    {
+      "id": "gate_local_request_shell",
+      "entry": "local",
+      "action": "request_shell_action",
+      "session_id": "gate_local",
+      "command": "dir C:\\",
+      "expect": { "ok": true, "contains_keys": ["action_id"] }
+    },
+    {
+      "id": "gate_local_reject_shell",
+      "entry": "local",
+      "action": "reject_action",
+      "session_id": "gate_local",
+      "action_id": "{{last_action_id}}",
+      "expect": { "ok": true, "action_status_in": ["rejected"] }
+    },
+    {
+      "id": "gate_mcp_healthz",
+      "entry": "mcp",
+      "action": "healthz",
+      "expect": { "ok": true, "status_code": 200, "max_latency_ms": 1000 }
+    },
+    {
+      "id": "gate_mcp_chat",
+      "entry": "mcp",
+      "action": "chat",
+      "session_id": "gate_mcp",
+      "message": "请给出一个多模态Agent落地建议",
+      "expect": { "ok": true, "contains_keys": ["answer"], "max_latency_ms": 120000 }
+    },
+    {
+      "id": "gate_mcp_stream",
+      "entry": "mcp",
+      "action": "stream_chat",
+      "session_id": "gate_mcp",
+      "message": "请一步步推理并给出结论",
+      "max_events": 80,
+      "expect": { "ok": true, "contains_keys": ["events", "event_count"], "max_latency_ms": 120000 }
+    },
+    {
+      "id": "gate_mcp_request_shell",
+      "entry": "mcp",
+      "action": "request_shell_action",
+      "session_id": "gate_mcp",
+      "command": "dir C:\\",
+      "expect": { "ok": true, "contains_keys": ["action_id"] }
+    },
+    {
+      "id": "gate_mcp_confirm_shell",
+      "entry": "mcp",
+      "action": "confirm_action",
+      "session_id": "gate_mcp",
+      "action_id": "{{last_action_id}}",
+      "expect": { "ok": true, "action_status_in": ["executed", "failed"] }
+    }
+  ]
+}

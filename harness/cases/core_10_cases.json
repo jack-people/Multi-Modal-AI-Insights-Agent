@@ -1,0 +1,88 @@
+{
+  "suite": "core_10_cases",
+  "description": "覆盖 local/api/mcp 的最小回归集（10条）",
+  "cases": [
+    {
+      "id": "local_healthz",
+      "entry": "local",
+      "action": "healthz",
+      "expect": { "ok": true, "status_code": 200 }
+    },
+    {
+      "id": "local_chat_basic",
+      "entry": "local",
+      "action": "chat",
+      "session_id": "h_local",
+      "message": "请简短介绍多模态Agent",
+      "expect": { "ok": true, "contains_keys": ["answer"], "max_latency_ms": 120000 }
+    },
+    {
+      "id": "local_request_shell",
+      "entry": "local",
+      "action": "request_shell_action",
+      "session_id": "h_local",
+      "command": "dir C:\\",
+      "expect": { "ok": true, "contains_keys": ["action_id"] }
+    },
+    {
+      "id": "local_confirm_shell",
+      "entry": "local",
+      "action": "confirm_action",
+      "session_id": "h_local",
+      "action_id": "{{last_action_id}}",
+      "expect": { "ok": true, "action_status_in": ["executed", "failed"] }
+    },
+    {
+      "id": "api_healthz",
+      "entry": "api",
+      "action": "healthz",
+      "expect": { "status_code": 200 }
+    },
+    {
+      "id": "api_chat_basic",
+      "entry": "api",
+      "action": "chat",
+      "session_id": "h_api",
+      "message": "请总结最近多模态Agent进展",
+      "expect": { "status_code": 200, "contains_keys": ["answer", "task_runtime"] }
+    },
+    {
+      "id": "api_stream_basic",
+      "entry": "api",
+      "action": "stream_chat",
+      "session_id": "h_api",
+      "message": "请一步步分析并输出执行过程",
+      "expect": { "status_code": 200, "stream_contains": ["run_started", "run_completed"] }
+    },
+    {
+      "id": "mcp_healthz",
+      "entry": "mcp",
+      "action": "healthz",
+      "expect": { "ok": true, "status_code": 200 }
+    },
+    {
+      "id": "mcp_research_web",
+      "entry": "mcp",
+      "action": "research_search",
+      "query": "multimodal agent benchmark",
+      "source": "web",
+      "expect": { "contains_keys": ["source"] }
+    },
+    {
+      "id": "mcp_request_reject_shell",
+      "entry": "mcp",
+      "action": "request_shell_action",
+      "session_id": "h_mcp",
+      "command": "dir C:\\",
+      "expect": { "ok": true, "contains_keys": ["action_id"] }
+    },
+    {
+      "id": "mcp_reject_shell",
+      "entry": "mcp",
+      "action": "reject_action",
+      "session_id": "h_mcp",
+      "action_id": "{{last_action_id}}",
+      "expect": { "ok": true, "action_status_in": ["rejected"] }
+    }
+  ]
+}

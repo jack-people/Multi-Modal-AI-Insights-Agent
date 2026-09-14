@@ -1,0 +1,9 @@
+{
+  "name": "Literature_Review",
+  "description": "当用户要求写多模态前沿领域的综述、总结发展趋势时调用此技能。",
+  "llm_config": {
+    "temperature": 0.3,
+    "max_tokens": 4096
+  },
+  "required_tools": ["search_dify_arxiv_db", "search_web_news"]
+}
