@@ -1,26 +1,12 @@
+from config import MM_MCP_DEFAULT_SESSION_ID
 from runtime_context import get_request_id, get_session_hint, set_thread_id
 
 
 def resolve_session_id(explicit: str | None = None) -> str:
-    """会话对齐靠配置/请求头，不依赖模型每轮填同一个 session_id。"""
-    text = str(explicit or "").strip()
-    if text:
-        set_thread_id(text)
-        return text
-
-    hint = str(get_session_hint() or "").strip()
-    if hint:
-        set_thread_id(hint)
-        return hint
-
-    try:
-        from config import MM_MCP_DEFAULT_SESSION_ID
-        fallback = MM_MCP_DEFAULT_SESSION_ID
-    except Exception:
-        fallback = "dsh-default"
-
-    set_thread_id(fallback)
-    return fallback
+    """会话对齐靠显式参数 → 请求头 → 配置缺省，不依赖模型每轮填同一个 session_id。"""
+    sid = str(explicit or "").strip() or str(get_session_hint() or "").strip() or MM_MCP_DEFAULT_SESSION_ID
+    set_thread_id(sid)
+    return sid
 
 
 def attach_request_meta(payload: dict, session_id: str | None = None) -> dict:

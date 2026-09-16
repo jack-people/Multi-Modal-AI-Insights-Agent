@@ -1,32 +1,28 @@
 from __future__ import annotations
 
+import json
 from typing import Any
 
+from app.api.deps import get_agent_runner
 from app.api.schemas.chat import ChatInputs, ChatRequest
 from app.service.agent_runner import AgentRunner
+from mcp_tools import paper_jobs
 from mcp_tools.context import attach_request_meta, resolve_session_id
-from runtime_context import set_thread_id
 from tools import search_dify_arxiv_db, search_web_news
 
 
 class McpService:
+    """MCP 工具的实现。公开方法即工具：签名与 docstring 直接用于 MCP schema。"""
+
     def __init__(self, runner: AgentRunner | None = None):
         self._runner = runner
 
     @property
     def runner(self) -> AgentRunner:
-        if self._runner is None:
-            from app.api.deps import get_agent_runner
+        return self._runner or get_agent_runner()
 
-            return get_agent_runner()
-        return self._runner
-
-    def _sid(self, session_id: str | None) -> str:
-        sid = resolve_session_id(session_id)
-        set_thread_id(sid)
-        return sid
-
-    def _out(self, payload: dict[str, Any], session_id: str | None = None) -> dict[str, Any]:
+    @staticmethod
+    def _out(payload: dict[str, Any], session_id: str | None = None) -> dict[str, Any]:
         return attach_request_meta(payload, session_id=session_id)
 
     @staticmethod
@@ -37,23 +33,20 @@ class McpService:
 
     @staticmethod
     def _invoke_search_tool(tool_obj: Any, query: str) -> dict[str, Any]:
-        if hasattr(tool_obj, "invoke"):
-            raw = tool_obj.invoke({"query": query})
-        else:
-            raw = tool_obj(query)
-
+        raw = tool_obj.invoke({"query": query}) if hasattr(tool_obj, "invoke") else tool_obj(query)
         if isinstance(raw, dict):
             return raw
         if isinstance(raw, str):
             try:
-                import json
-
                 return {"ok": True, **json.loads(raw)}
             except Exception:
                 return {"ok": False, "error": "tool 返回非 JSON 字符串", "raw": raw}
         return {"ok": False, "error": f"tool 返回未知类型: {type(raw).__name__}"}
 
+    # ---- tools ----
+
     def healthz(self) -> dict[str, Any]:
+        """检查 MCP 服务可用性。"""
         return self._out({"ok": True, "service": "multi-modal-ai-insights-agent-mcp"})
 
     def chat(
@@ -62,9 +55,9 @@ class McpService:
         message: str = "",
         inputs: dict[str, Any] | None = None,
     ) -> dict[str, Any]:
-        sid = self._sid(session_id)
-        req = self._build_chat_request(message=message, inputs=inputs)
-        snapshot = self.runner.run_chat(session_id=sid, req=req)
+        """发起一轮聊天并返回最终回答。不要暴露给 dsh。"""
+        sid = resolve_session_id(session_id)
+        snapshot = self.runner.run_chat(session_id=sid, req=self._build_chat_request(message, inputs))
         return self._out(
             {
                 "ok": True,
@@ -76,40 +69,6 @@ class McpService:
             session_id=sid,
         )
 
-    def research_search(self, query: str, source: str = "auto") -> dict[str, Any]:
-        mode = (source or "auto").strip().lower()
-        if mode not in {"dify", "web", "auto"}:
-            return self._out(
-                {
-                    "ok": False,
-                    "error_code": "MM400_BAD_SOURCE",
-                    "message": "source 仅支持 dify/web/auto",
-                    "detail": {"source": source},
-                }
-            )
-
-        if mode == "dify":
-            result = self._invoke_search_tool(search_dify_arxiv_db, query)
-            result["requested_source"] = "dify"
-            return self._out(result)
-
-        if mode == "web":
-            result = self._invoke_search_tool(search_web_news, query)
-            result["requested_source"] = "web"
-            return self._out(result)
-
-        dify_result = self._invoke_search_tool(search_dify_arxiv_db, query)
-        if bool(dify_result.get("ok", False)):
-            dify_result["requested_source"] = "auto"
-            dify_result["selected_source"] = str(dify_result.get("source", "dify_arxiv_db"))
-            return self._out(dify_result)
-
-        web_result = self._invoke_search_tool(search_web_news, query)
-        web_result["requested_source"] = "auto"
-        web_result["selected_source"] = str(web_result.get("source", "web_news"))
-        web_result["fallback_from"] = "dify_arxiv_db"
-        return self._out(web_result)
-
     def stream_chat(
         self,
         session_id: str | None = None,
@@ -117,15 +76,14 @@ class McpService:
         inputs: dict[str, Any] | None = None,
         max_events: int = 200,
     ) -> dict[str, Any]:
-        sid = self._sid(session_id)
-        req = self._build_chat_request(message=message, inputs=inputs)
-        events = []
+        """以事件列表形式返回流式执行结果。不要暴露给 dsh。"""
+        sid = resolve_session_id(session_id)
         limit = max(1, int(max_events))
-        for item in self.runner.stream_chat(session_id=sid, req=req):
+        events: list[dict[str, Any]] = []
+        for item in self.runner.stream_chat(session_id=sid, req=self._build_chat_request(message, inputs)):
             events.append(item)
             if len(events) >= limit:
                 break
-
         completed = bool(events and events[-1].get("type") == "run_completed")
         return self._out(
             {
@@ -138,8 +96,37 @@ class McpService:
             session_id=sid,
         )
 
+    def research_search(self, query: str, source: str = "auto") -> dict[str, Any]:
+        """MCP 统一检索入口。source: dify / web / auto。"""
+        mode = (source or "auto").strip().lower()
+        if mode not in {"dify", "web", "auto"}:
+            return self._out(
+                {
+                    "ok": False,
+                    "error_code": "MM400_BAD_SOURCE",
+                    "message": "source 仅支持 dify/web/auto",
+                    "detail": {"source": source},
+                }
+            )
+
+        if mode != "web":
+            result = self._invoke_search_tool(search_dify_arxiv_db, query)
+            if mode == "dify" or result.get("ok", False):
+                result["requested_source"] = mode
+                if mode == "auto":
+                    result["selected_source"] = str(result.get("source", "dify_arxiv_db"))
+                return self._out(result)
+
+        result = self._invoke_search_tool(search_web_news, query)
+        result["requested_source"] = mode
+        if mode == "auto":
+            result["selected_source"] = str(result.get("source", "web_news"))
+            result["fallback_from"] = "dify_arxiv_db"
+        return self._out(result)
+
     def get_state(self, session_id: str | None = None) -> dict[str, Any]:
-        sid = self._sid(session_id)
+        """获取会话状态快照。session_id 可省略，由服务端缺省。"""
+        sid = resolve_session_id(session_id)
         snapshot = self.runner.get_state(session_id=sid)
         return self._out(
             {
@@ -164,7 +151,7 @@ class McpService:
         message: str,
         confirm_payload: dict[str, Any],
     ) -> dict[str, Any]:
-        sid = self._sid(session_id)
+        sid = resolve_session_id(session_id)
         result = self.runner.request_action(
             session_id=sid,
             action_name=action_name,
@@ -181,8 +168,9 @@ class McpService:
         filename: str = "",
         content: str = "",
     ) -> dict[str, Any]:
+        """创建写文件待确认动作。"""
         return self._request_action(
-            session_id=session_id,
+            session_id,
             action_name="action_write_report_file",
             risk="low",
             query=f"filename={filename}",
@@ -197,8 +185,9 @@ class McpService:
         subject: str = "",
         body: str = "",
     ) -> dict[str, Any]:
+        """创建邮件草稿待确认动作。"""
         return self._request_action(
-            session_id=session_id,
+            session_id,
             action_name="action_create_email_draft",
             risk="medium",
             query=f"recipient={recipient};subject={subject}",
@@ -211,8 +200,9 @@ class McpService:
         session_id: str | None = None,
         command: str = "",
     ) -> dict[str, Any]:
+        """创建命令执行待确认动作（高风险）。"""
         return self._request_action(
-            session_id=session_id,
+            session_id,
             action_name="action_run_shell_command",
             risk="high",
             query=command,
@@ -220,23 +210,30 @@ class McpService:
             confirm_payload={"command": command},
         )
 
-    @staticmethod
-    def _decision_result(result: dict[str, Any], session_id: str, action_id: str) -> dict[str, Any]:
-        if result.get("ok", False):
-            return result
-        return {
-            "ok": False,
-            "error_code": "MM404_ACTION_NOT_FOUND",
-            "message": result.get("message", "action_id 不存在"),
-            "detail": {"session_id": session_id, "action_id": action_id},
-        }
+    def _decide_action(self, session_id: str | None, action_id: str, approve: bool) -> dict[str, Any]:
+        sid = resolve_session_id(session_id)
+        result = self.runner.confirm_action(session_id=sid, action_id=action_id, approve=approve)
+        if not result.get("ok", False):
+            result = {
+                "ok": False,
+                "error_code": "MM404_ACTION_NOT_FOUND",
+                "message": result.get("message", "action_id 不存在"),
+                "detail": {"session_id": sid, "action_id": action_id},
+            }
+        return self._out(result, session_id=sid)
 
     def confirm_action(self, session_id: str | None = None, action_id: str = "") -> dict[str, Any]:
-        sid = self._sid(session_id)
-        result = self.runner.confirm_action(session_id=sid, action_id=action_id, approve=True)
-        return self._out(self._decision_result(result=result, session_id=sid, action_id=action_id), session_id=sid)
+        """确认执行待确认动作。"""
+        return self._decide_action(session_id, action_id, approve=True)
 
     def reject_action(self, session_id: str | None = None, action_id: str = "") -> dict[str, Any]:
-        sid = self._sid(session_id)
-        result = self.runner.confirm_action(session_id=sid, action_id=action_id, approve=False)
-        return self._out(self._decision_result(result=result, session_id=sid, action_id=action_id), session_id=sid)
+        """拒绝执行待确认动作。"""
+        return self._decide_action(session_id, action_id, approve=False)
+
+    def paper_run_start(self, paper_limit: int = 10, top_k: int = 10, news_limit: int = 0) -> dict[str, Any]:
+        """启动论文分析任务，立即返回 job_id。"""
+        return self._out(paper_jobs.paper_run_start(paper_limit=paper_limit, top_k=top_k, news_limit=news_limit))
+
+    def paper_run_status(self, job_id: str) -> dict[str, Any]:
+        """查询论文分析任务状态与报告路径。"""
+        return self._out(paper_jobs.paper_run_status(job_id=job_id))

@@ -27,27 +27,19 @@ from app.api.routes.actions import router as actions_router
 from app.api.exceptions import ApiError
 from app.api.middleware import FixedWindowRateLimiter
 from runtime_context import log_event, set_request_id, set_session_hint
+from mcp_tools.factory import create_mcp
+from mcp_tools.registry import DSH_HTTP_TOOL_NAMES
 from contextlib import asynccontextmanager
 
 
 def create_api_app() -> FastAPI:
     validate_config(strict=False)
 
-    dsh_mcp = None
-    try:
-        from mcp.server.fastmcp import FastMCP  # noqa: F401
-        from mcp_tools.factory import create_dsh_mcp
-
-        dsh_mcp, _, _ = create_dsh_mcp()
-    except ModuleNotFoundError as exc:
-        log_event("fastapi_api", "mcp_unavailable", meta={"error": str(exc)})
+    dsh_mcp, _ = create_mcp(include=DSH_HTTP_TOOL_NAMES)
+    mcp_asgi = dsh_mcp.streamable_http_app()
 
     @asynccontextmanager
     async def lifespan(_app: FastAPI):
-        if dsh_mcp is None:
-            yield
-            return
-        dsh_mcp.streamable_http_app()
         async with dsh_mcp.session_manager.run():
             yield
 
@@ -177,11 +169,8 @@ def create_api_app() -> FastAPI:
     app.include_router(chat_router)
     app.include_router(sessions_router)
     app.include_router(actions_router)
-    if dsh_mcp is not None:
-        from mcp_tools.http import _asgi_app
-
-        app.mount("/v1/mcp", _asgi_app(dsh_mcp))
-        app.state.dsh_mcp = dsh_mcp
+    app.mount("/v1/mcp", mcp_asgi)
+    app.state.dsh_mcp = dsh_mcp
     return app
 
 

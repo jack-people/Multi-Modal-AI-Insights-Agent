@@ -1,6 +1,6 @@
 import json
 from contextlib import contextmanager
-from contextvars import ContextVar, Token
+from contextvars import ContextVar
 from datetime import datetime
 from typing import Optional, Dict, Any, Iterator
 
@@ -34,17 +34,13 @@ def get_session_hint() -> str:
     return _session_hint_ctx.get()
 
 
-def set_force_action_confirm(enabled: bool) -> Token:
-    return _force_action_confirm_ctx.set(bool(enabled))
-
-
 def is_force_action_confirm() -> bool:
     return _force_action_confirm_ctx.get()
 
 
 @contextmanager
 def action_confirm_required() -> Iterator[None]:
-    token = set_force_action_confirm(True)
+    token = _force_action_confirm_ctx.set(True)
     try:
         yield
     finally:

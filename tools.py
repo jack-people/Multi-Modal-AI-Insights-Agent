@@ -152,18 +152,10 @@ def _dify_url_for(mode: str) -> str:
 
 
 def _dify_payload(query: str, mode: str) -> dict:
+    payload = {"inputs": {"query": query}, "response_mode": "blocking", "user": "vscode-agent-tool"}
     if mode == "chat":
-        return {
-            "inputs": {"query": query},
-            "query": query,
-            "response_mode": "blocking",
-            "user": "vscode-agent-tool",
-        }
-    return {
-        "inputs": {"query": query},
-        "response_mode": "blocking",
-        "user": "vscode-agent-tool",
-    }
+        payload["query"] = query
+    return payload
 
 
 def _dify_response_code(response) -> str:
