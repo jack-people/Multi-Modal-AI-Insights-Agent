@@ -41,7 +41,10 @@ def main() -> int:
         print("[ERROR] 缺少 DIFY_APP_API_KEY")
         return 1
 
-    url = f"{base_url.rstrip('/')}/v1/workflows/run"
+    root = base_url.rstrip("/")
+    if not root.endswith("/v1"):
+        root = f"{root}/v1"
+    url = f"{root}/workflows/run"
     headers = {
         "Authorization": f"Bearer {api_key}",
         "Content-Type": "application/json",

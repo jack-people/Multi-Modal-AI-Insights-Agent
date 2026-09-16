@@ -6,8 +6,12 @@ from langchain_core.tools import tool
 from langchain_community.tools import DuckDuckGoSearchResults
 from config import (
     DIFY_APP_API_KEY,
+    DIFY_APP_MODE,
+    DIFY_CHAT_URL,
+    DIFY_COMPLETION_URL,
     DIFY_WORKFLOW_URL,
-    TOOL_TIMEOUT_SEC,
+    DIFY_TIMEOUT_SEC,
+    DIFY_HTTP_TRUST_ENV,
     TOOL_RETRY_MAX,
     TOOL_RETRY_BACKOFF,
     ACTION_AUTO_EXECUTE_MAX_RISK,
@@ -16,6 +20,7 @@ from runtime_context import log_event, is_force_action_confirm
 from actions import append_audit_log, should_auto_execute, execute_confirmed_action
 
 HTTP_SESSION = requests.Session()
+HTTP_SESSION.trust_env = DIFY_HTTP_TRUST_ENV
 
 
 def _allow_auto_execute(risk: str) -> bool:
@@ -43,13 +48,13 @@ def _request_with_retry(url: str, headers: dict, payload: dict, source: str):
             log_event(
                 node=source,
                 event="request_attempt",
-                meta={"attempt": attempt, "timeout_sec": TOOL_TIMEOUT_SEC}
+                meta={"attempt": attempt, "timeout_sec": DIFY_TIMEOUT_SEC},
             )
             response = HTTP_SESSION.post(
                 url,
                 headers=headers,
                 json=payload,
-                timeout=TOOL_TIMEOUT_SEC
+                timeout=DIFY_TIMEOUT_SEC,
             )
             return response
         except Exception as e:
@@ -109,6 +114,104 @@ def _dify_fallback_web(query: str, reason: str) -> str:
             query=query,
             error=f"{reason}; 且公网回退失败: {e}",
         )
+
+
+_DIFY_MODE_MISMATCH = {"not_workflow_app", "not_chat_app", "not_completion_app"}
+_dify_mode_resolved: str | None = None
+
+
+def extract_dify_answer(result: dict) -> str:
+    answer = str(result.get("answer") or "").strip()
+    if answer:
+        return answer
+    data_block = result.get("data")
+    if not isinstance(data_block, dict):
+        return ""
+    nested = str(data_block.get("answer") or "").strip()
+    if nested:
+        return nested
+    outputs = data_block.get("outputs")
+    if isinstance(outputs, dict) and outputs:
+        return "".join(str(value) for value in outputs.values()).strip()
+    return ""
+
+
+def _dify_headers() -> dict:
+    return {
+        "Authorization": f"Bearer {DIFY_APP_API_KEY}",
+        "Content-Type": "application/json",
+    }
+
+
+def _dify_url_for(mode: str) -> str:
+    if mode == "chat":
+        return DIFY_CHAT_URL
+    if mode == "completion":
+        return DIFY_COMPLETION_URL
+    return DIFY_WORKFLOW_URL
+
+
+def _dify_payload(query: str, mode: str) -> dict:
+    if mode == "chat":
+        return {
+            "inputs": {"query": query},
+            "query": query,
+            "response_mode": "blocking",
+            "user": "vscode-agent-tool",
+        }
+    return {
+        "inputs": {"query": query},
+        "response_mode": "blocking",
+        "user": "vscode-agent-tool",
+    }
+
+
+def _dify_response_code(response) -> str:
+    try:
+        body = response.json()
+    except Exception:
+        return ""
+    if isinstance(body, dict):
+        return str(body.get("code") or "")
+    return ""
+
+
+def _dify_mode_order() -> list[str]:
+    configured = (DIFY_APP_MODE or "auto").strip().lower()
+    if configured != "auto":
+        return [configured]
+    preferred = _dify_mode_resolved or "workflow"
+    rest = [item for item in ("workflow", "chat", "completion") if item != preferred]
+    return [preferred, *rest]
+
+
+def call_dify_search(query: str):
+    """按 App 类型调用 Dify；auto 模式下接口不匹配会换路由重试。"""
+    global _dify_mode_resolved
+    last_error = "Dify 未返回有效响应"
+    last_response = None
+    for mode in _dify_mode_order():
+        response = _request_with_retry(
+            _dify_url_for(mode),
+            _dify_headers(),
+            _dify_payload(query, mode),
+            source="dify_arxiv_db",
+        )
+        last_response = response
+        if response.status_code == 200:
+            _dify_mode_resolved = mode
+            return response, mode, ""
+        last_error = f"状态码: {response.status_code}, 详情: {response.text}"
+        mismatch = _dify_response_code(response) in _DIFY_MODE_MISMATCH
+        log_event(
+            "dify_arxiv_db",
+            "http_error",
+            meta={"status_code": response.status_code, "mode": mode, "mismatch": mismatch},
+        )
+        if mismatch and (DIFY_APP_MODE or "auto") == "auto":
+            continue
+        break
+    return last_response, _dify_mode_resolved or "", last_error
 
 
 def _pending_action_response(source: str, risk: str, query: str, message: str, confirm_payload: dict) -> str:
@@ -195,73 +298,42 @@ def search_dify_arxiv_db(query: str) -> str:
     传入的 query 必须是非常简短的 2-3 个核心学术名词组合（例如："多模态 幻觉" 或 "GPT-4o 架构"）。
     绝对禁止输入长句或堆砌超过 5 个词，否则将导致系统崩溃！
     """
-    print(f"\n🔍 [Tool] 正在通过工作流向 Dify 发起检索: '{query}'")
-    log_event("dify_arxiv_db", "start", meta={"query": query})
-    
-    headers = {
-        "Authorization": f"Bearer {DIFY_APP_API_KEY}",
-        "Content-Type": "application/json"
-    }
-    
-    # 工作流的标准请求格式
-    data = {
-        "inputs": {
-            "query": query  # 对应你在开始节点定义的那个变量名
-        },
-        "response_mode": "blocking", # 必须是 blocking，直接拿到最终结果
-        "user": "vscode-agent-tool"
-    }
-    
+    print(f"\n🔍 [Tool] 正在向 Dify 发起检索: '{query}'")
+    log_event("dify_arxiv_db", "start", meta={"query": query, "app_mode": DIFY_APP_MODE})
+
     try:
-        response = _request_with_retry(
-            DIFY_WORKFLOW_URL,
-            headers,
-            data,
-            source="dify_arxiv_db"
-        )
-         # 1. 先检查 HTTP 状态码
-        if response.status_code != 200:
-            error_msg = f"工作流 API 报错! 状态码: {response.status_code}, 详情: {response.text}"
+        response, mode, error_msg = call_dify_search(query)
+        if response is None or response.status_code != 200:
             print(f"❌ [Tool] {error_msg}")
-            log_event("dify_arxiv_db", "http_error", meta={"status_code": response.status_code})
-            return _dify_fallback_web(query, error_msg)
-            
-        # 2. 🌟 关键修复：尝试解析 JSON 前，做好异常捕获
+            return _dify_fallback_web(query, f"Dify API 报错! {error_msg}")
+
         try:
             result = response.json()
         except Exception as json_err:
-            # 如果解析失败，把 Dify 返回的原始内容打印出来，你一眼就能看出问题！
             print(f"❌ [Tool] 解析 Dify JSON 失败！Dify 真实返回内容如下：\n{response.text}")
             log_event("dify_arxiv_db", "json_parse_error", meta={"error": str(json_err)})
             return _dify_fallback_web(query, "Dify 知识库检索出错: 返回了非 JSON 格式的数据。")
-        
-        # 解析工作流的输出
-        data_block = result.get("data", {})
-        outputs = data_block.get("outputs", {})
-        
-        # 提取我们在结束节点定义的输出值（假设你定义的名字叫 text 或 result）
-        # 遍历 outputs 字典拿到那串纯文本
-        answer = "".join(str(value) for value in outputs.values())
-        
-        if not answer or answer.strip() == "":
+
+        answer = extract_dify_answer(result if isinstance(result, dict) else {})
+        if not answer:
             print("⚠️ [Tool] 知识库检索完成，但未返回内容。")
-            log_event("dify_arxiv_db", "done", meta={"chars": 0})
+            log_event("dify_arxiv_db", "done", meta={"chars": 0, "mode": mode})
             return _tool_result(
                 ok=True,
                 source="dify_arxiv_db",
                 query=query,
-                data="在知识库中未检索到相关内容。"
+                data="在知识库中未检索到相关内容。",
             )
-            
-        print(f"✅ [Tool] Dify 检索成功！总字数: {len(answer)}。")
-        log_event("dify_arxiv_db", "done", meta={"chars": len(answer)})
+
+        print(f"✅ [Tool] Dify 检索成功（{mode}）！总字数: {len(answer)}。")
+        log_event("dify_arxiv_db", "done", meta={"chars": len(answer), "mode": mode})
         return _tool_result(
             ok=True,
             source="dify_arxiv_db",
             query=query,
-            data=answer
+            data=answer,
         )
-        
+
     except Exception as e:
         error_msg = f"连接 Dify 发生网络异常: {e}"
         print(f"❌ [Tool] {error_msg}")

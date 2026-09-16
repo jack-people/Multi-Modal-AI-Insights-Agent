@@ -28,16 +28,28 @@ def _env_bool(name: str, default: bool) -> bool:
         return default
     return raw.strip().lower() in {"1", "true", "yes", "on"}
 
+
+def dify_api_root(base_url: str) -> str:
+    """DIFY_BASE_URL 写成带或不带 /v1 都能拼出正确的 API 根路径。"""
+    base = (base_url or "").strip().rstrip("/")
+    if base.endswith("/v1"):
+        return base
+    return f"{base}/v1"
+
 # ========== Dify 配置 ==========
 DIFY_APP_API_KEY = os.getenv("DIFY_APP_API_KEY")
 DIFY_DATASET_API_KEY = os.getenv("DIFY_DATASET_API_KEY")
 DIFY_BASE_URL = os.getenv("DIFY_BASE_URL", "http://localhost")
-DIFY_WORKFLOW_URL = os.getenv("DIFY_WORKFLOW_URL", f"{DIFY_BASE_URL}/v1/workflows/run")
+_dify_root = dify_api_root(DIFY_BASE_URL)
 DATASET_ID = os.getenv("DIFY_DATASET_ID", "7f5cbb69-1ff7-4f2e-a3bd-baaddf10847c")
-DIFY_RETRIEVAL_URL = os.getenv(
-    "DIFY_RETRIEVAL_URL",
-    f"{DIFY_BASE_URL}/v1/datasets/{DATASET_ID}/retrieve"
-)
+DIFY_APP_MODE = os.getenv("DIFY_APP_MODE", "auto").strip().lower() or "auto"
+DIFY_WORKFLOW_URL = os.getenv("DIFY_WORKFLOW_URL", "").strip() or f"{_dify_root}/workflows/run"
+DIFY_CHAT_URL = os.getenv("DIFY_CHAT_URL", "").strip() or f"{_dify_root}/chat-messages"
+DIFY_COMPLETION_URL = os.getenv("DIFY_COMPLETION_URL", "").strip() or f"{_dify_root}/completion-messages"
+DIFY_RETRIEVAL_URL = os.getenv("DIFY_RETRIEVAL_URL", "").strip() or f"{_dify_root}/datasets/{DATASET_ID}/retrieve"
+# Dify blocking 调用经常超过通用工具超时；系统代理也容易把 api.dify.ai 的 TLS 掐断
+DIFY_TIMEOUT_SEC = _env_int("DIFY_TIMEOUT_SEC", 60)
+DIFY_HTTP_TRUST_ENV = _env_bool("DIFY_HTTP_TRUST_ENV", True)
 
 # ========== Agent 行为配置 ==========
 MAX_CRITIC_RETRIES = _env_int("MAX_CRITIC_RETRIES", 3)
@@ -113,8 +125,12 @@ def validate_config(strict: bool = True) -> list[str]:
         errors.append("缺少 DEEPSEEK_API_KEY")
     if not DIFY_APP_API_KEY:
         errors.append("缺少 DIFY_APP_API_KEY")
+    if DIFY_APP_MODE not in {"auto", "workflow", "chat", "completion"}:
+        errors.append("DIFY_APP_MODE 必须是 auto/workflow/chat/completion 之一")
     if not _is_valid_http_url(DIFY_WORKFLOW_URL):
         errors.append(f"DIFY_WORKFLOW_URL 非法: {DIFY_WORKFLOW_URL}")
+    if not _is_valid_http_url(DIFY_CHAT_URL):
+        errors.append(f"DIFY_CHAT_URL 非法: {DIFY_CHAT_URL}")
 
     db_error = _validate_db_writable(AGENT_DB_PATH)
     if db_error:
@@ -122,6 +138,8 @@ def validate_config(strict: bool = True) -> list[str]:
 
     if TOOL_TIMEOUT_SEC <= 0:
         errors.append("TOOL_TIMEOUT_SEC 必须大于 0")
+    if DIFY_TIMEOUT_SEC <= 0:
+        errors.append("DIFY_TIMEOUT_SEC 必须大于 0")
     if TOOL_RETRY_MAX < 1:
         errors.append("TOOL_RETRY_MAX 必须大于等于 1")
     if TOOL_RETRY_BACKOFF < 0:

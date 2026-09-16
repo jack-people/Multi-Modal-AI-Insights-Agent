@@ -77,6 +77,14 @@ class FastApiApiTests(unittest.TestCase):
         api_main.API_AUTH_KEY = self._old_auth_key
         api_main.API_RATE_LIMIT_PER_MIN = self._old_rate
 
+    def test_root(self):
+        resp = self.client.get("/")
+        self.assertEqual(resp.status_code, 200)
+        body = resp.json()
+        self.assertTrue(body["ok"])
+        self.assertEqual(body["healthz"], "/healthz")
+        self.assertEqual(body["docs"], "/docs")
+
     def test_healthz(self):
         resp = self.client.get("/healthz")
         self.assertEqual(resp.status_code, 200)
