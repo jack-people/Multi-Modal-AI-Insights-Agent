@@ -14,6 +14,8 @@ class ActionsRuntimeTests(unittest.TestCase):
         self.assertTrue(should_auto_execute("low", "medium"))
         self.assertFalse(should_auto_execute("medium", "low"))
         self.assertFalse(should_auto_execute("high", "medium"))
+        self.assertFalse(should_auto_execute("low", "none"))
+        self.assertFalse(should_auto_execute("high", "none"))
         self.assertEqual(normalize_risk("UNKNOWN"), "high")
 
     def test_append_audit_log(self):

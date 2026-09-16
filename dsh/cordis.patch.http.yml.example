@@ -1,0 +1,18 @@
+# 复制到 %USERPROFILE%\.dsh\profiles\web\cordis.patch.yml
+# 第一期目标形态：先启动 FastAPI :8001，再开 dsh web。
+# 必须包在 insert: 下。
+# API_AUTH_ENABLED=true 时，启动 dsh 的环境里需要有 API_AUTH_KEY。
+
+- insert:
+    - id: mcp-mmagent
+      name: '@deepseek-ai/dsh-mcp-client'
+      config:
+        serverName: mmagent
+        transport: streamable-http
+        url: "http://127.0.0.1:8001/v1/mcp"
+        headers:
+          X-API-Key: !!js process.env.API_AUTH_KEY
+          # 可选：把 dsh 这一路的动作/状态固定到一个 Python 会话；不填则退回 mcp-session-id
+          # X-Session-Id: dsh-web
+        toolCallTimeoutMs: 180000
+        failOnStartupError: true

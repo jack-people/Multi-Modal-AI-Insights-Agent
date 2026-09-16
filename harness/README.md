@@ -92,7 +92,7 @@ python -m harness.cli resume --run-id <run_id>
 ```bash
 python -m harness.run_harness \
   --suite harness/cases/core_10_cases.json \
-  --api-base-url http://127.0.0.1:8000
+  --api-base-url http://127.0.0.1:8001
 ```
 
 ## 用例说明

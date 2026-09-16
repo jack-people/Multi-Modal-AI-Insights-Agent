@@ -1,4 +1,5 @@
 from datetime import datetime
+from functools import cache
 from langchain_core.messages import SystemMessage
 from model import llm_router
 from state import AgentState
@@ -7,7 +8,10 @@ from skill_manager import skill_manager
 from runtime_context import log_event
 from .common import retry_count
 
-llm_with_tools = llm_router.bind_tools(tools)
+
+@cache
+def _llm_with_tools():
+    return llm_router.bind_tools(tools)
 
 
 def skill_execution_node(state: AgentState):
@@ -73,7 +77,7 @@ def skill_execution_node(state: AgentState):
         filtered_messages = [m for m in messages if not isinstance(m, SystemMessage)]
         current_messages = [system_message] + filtered_messages
 
-        response = llm_with_tools.invoke(current_messages)
+        response = _llm_with_tools().invoke(current_messages)
         has_tool_calls = bool(getattr(response, "tool_calls", None))
         step_status = "in_progress" if has_tool_calls else "awaiting_review"
 
@@ -110,7 +114,7 @@ def router_node(state: AgentState):
    - 拆分复杂问题。 """)
 
         messages = [sys_msg] + state["messages"]
-        response = llm_with_tools.invoke(messages)
+        response = _llm_with_tools().invoke(messages)
         log_event("router", "done", retry_count=current_retry)
         return {"messages": [response]}
     except Exception as e:

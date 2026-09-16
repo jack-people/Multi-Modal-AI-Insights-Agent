@@ -5,7 +5,7 @@ import hashlib
 import copy
 from langchain_core.messages import HumanMessage
 from graph import create_agent_app
-from runtime_context import set_thread_id, log_event
+from runtime_context import set_thread_id, log_event, get_request_id
 from web_task_runtime import update_task_runtime_from_node
 from app.api.schemas.chat import ChatRequest
 from actions import execute_confirmed_action, append_audit_log
@@ -401,7 +401,11 @@ class AgentRunner:
                 row.get("risk", risk),
                 "pending_confirmation",
                 row.get("message", message),
-                meta={"query": row.get("query", query), "requested_in_mcp": True},
+                meta={
+                    "query": row.get("query", query),
+                    "requested_in_mcp": True,
+                    "request_id": get_request_id(),
+                },
             )
 
         snapshot["updated_at"] = datetime.now().isoformat()

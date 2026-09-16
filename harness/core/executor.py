@@ -67,7 +67,7 @@ def execute_run(ws: HarnessWorkspace, write_latest_report_dir: str | None = None
     manifest = ws.read_json("manifest.json")
     plan = ws.read_json("plan.json")
     context = ws.read_json("context.json", default={})
-    api_base_url = manifest.get("api_base_url", "http://127.0.0.1:8000")
+    api_base_url = manifest.get("api_base_url", "http://127.0.0.1:8001")
     ws.mark_state("running")
 
     results = ws.read_jsonl("results.jsonl")

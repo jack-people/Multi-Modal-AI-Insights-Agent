@@ -1,0 +1,17 @@
+# 复制到 %USERPROFILE%\.dsh\profiles\web\cordis.patch.yml
+# 仅用于步骤 1 通路冒烟。目标形态见 cordis.patch.http.yml.example
+# 必须包在 insert: 下；顶层 - id: 会按替换匹配失败。
+# cwd 改成你的仓库根目录；command 改成本机 Python。
+
+- insert:
+    - id: mcp-mmagent
+      name: '@deepseek-ai/dsh-mcp-client'
+      config:
+        serverName: mmagent
+        transport: stdio
+        command: "python"
+        args: ["mcp_server.py"]
+        cwd: "D:/A_ZJJ_Project/Multi-Modal AI Insights Agent Cursor/Multi-Modal-AI-Insights-Agent"
+        toolCallTimeoutMs: 180000
+        failOnStartupError: true
+        env: {}

@@ -11,13 +11,19 @@ tqdm
 # Agent / LLM orchestration
 langchain-core
 langchain-openai
+langchain-community
 langgraph
+# graph.py 用 langgraph.checkpoint.sqlite，该模块不在 langgraph 主包里
+langgraph-checkpoint-sqlite
+# DuckDuckGoSearchResults 的运行期后端
+ddgs
 
 # UI
 streamlit
 
 # MCP server runtime
-mcp
+# mcp 2.x 把 FastMCP 改名为 MCPServer；streamable-http 需要 1.9+
+mcp>=1.9,<2
 
 # Compatibility for Python < 3.11
 typing-extensions

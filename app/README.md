@@ -3,14 +3,14 @@
 ## 启动
 
 ```bash
-uvicorn app.api.main:app --host 0.0.0.0 --port 8000 --reload
+uvicorn app.api.main:app --host 0.0.0.0 --port 8001 --reload
 ```
 
 ## 访问地址
 
-- 文档（Swagger UI）：`http://127.0.0.1:8000/docs`
-- 文档（ReDoc）：`http://127.0.0.1:8000/redoc`
-- 健康检查：`http://127.0.0.1:8000/healthz`
+- 文档（Swagger UI）：`http://127.0.0.1:8001/docs`
+- 文档（ReDoc）：`http://127.0.0.1:8001/redoc`
+- 健康检查：`http://127.0.0.1:8001/healthz`
 
 ## 核心接口
 
@@ -109,13 +109,13 @@ uvicorn app.api.main:app --host 0.0.0.0 --port 8000 --reload
 1) 健康检查
 
 ```bash
-curl -X GET "http://127.0.0.1:8000/healthz"
+curl -X GET "http://127.0.0.1:8001/healthz"
 ```
 
 2) 同步聊天
 
 ```bash
-curl -X POST "http://127.0.0.1:8000/v1/sessions/demo/chat" \
+curl -X POST "http://127.0.0.1:8001/v1/sessions/demo/chat" \
   -H "Content-Type: application/json" \
   -H "X-API-Key: <your_api_key_if_enabled>" \
   -d "{\"message\":\"请总结最近多模态Agent进展\"}"
@@ -124,7 +124,7 @@ curl -X POST "http://127.0.0.1:8000/v1/sessions/demo/chat" \
 3) SSE 流式聊天（命令行观察事件流）
 
 ```bash
-curl -N -X POST "http://127.0.0.1:8000/v1/sessions/demo/stream" \
+curl -N -X POST "http://127.0.0.1:8001/v1/sessions/demo/stream" \
   -H "Content-Type: application/json" \
   -H "X-API-Key: <your_api_key_if_enabled>" \
   -d "{\"message\":\"请一步步分析并输出执行过程\"}"
@@ -133,14 +133,14 @@ curl -N -X POST "http://127.0.0.1:8000/v1/sessions/demo/stream" \
 4) 查看会话状态（拿待确认动作 `action_id`）
 
 ```bash
-curl -X GET "http://127.0.0.1:8000/v1/sessions/demo/state"
+curl -X GET "http://127.0.0.1:8001/v1/sessions/demo/state"
 ```
 
 5) 确认/拒绝动作
 
 ```bash
-curl -X POST "http://127.0.0.1:8000/v1/sessions/demo/actions/act_123456789abc/confirm"
-curl -X POST "http://127.0.0.1:8000/v1/sessions/demo/actions/act_123456789abc/reject"
+curl -X POST "http://127.0.0.1:8001/v1/sessions/demo/actions/act_123456789abc/confirm"
+curl -X POST "http://127.0.0.1:8001/v1/sessions/demo/actions/act_123456789abc/reject"
 ```
 
 ## 前端对接示例（EventSource）
@@ -194,8 +194,8 @@ async function startStream(sessionId, message) {
 
 ## 常见排查
 
-- 终端需出现：`Uvicorn running on http://0.0.0.0:8000`
-- 若浏览器打不开，检查防火墙或端口冲突（可改为 `--port 8001`）
+- 终端需出现：`Uvicorn running on http://0.0.0.0:8001`
+- 若浏览器打不开，检查防火墙或端口是否被占用
 
 
 
@@ -220,8 +220,8 @@ async function startStream(sessionId, message) {
 0.1 启动服务
 在项目根目录执行：
 
-uvicorn app.api.main:app --host 0.0.0.0 --port 8000 --reload
-预期：终端出现 Uvicorn running on http://0.0.0.0:8000
+uvicorn app.api.main:app --host 0.0.0.0 --port 8001 --reload
+预期：终端出现 Uvicorn running on http://0.0.0.0:8001
 
 0.2 建议 .env（D阶段）最小配置
 API_AUTH_ENABLED=false
@@ -229,23 +229,23 @@ API_RATE_LIMIT_PER_MIN=60
 API_CORS_ORIGINS=*
 1) Week A 基础可用性
 1.1 健康检查
-curl.exe http://127.0.0.1:8000/healthz
+curl.exe http://127.0.0.1:8001/healthz
 预期：HTTP 200，包含 ok: true
 
 1.2 就绪检查
-curl.exe http://127.0.0.1:8000/readyz
+curl.exe http://127.0.0.1:8001/readyz
 预期：HTTP 200，包含 ready: true
 
 1.3 OpenAPI 文档
 浏览器打开：
 
-http://127.0.0.1:8000/docs
-http://127.0.0.1:8000/redoc
+http://127.0.0.1:8001/docs
+http://127.0.0.1:8001/redoc
 预期：能看到 chat/state/stream/actions 接口
 
 2) Week B 同步对话与状态
 2.1 同步 chat
-curl.exe -X POST "http://127.0.0.1:8000/v1/sessions/demo/chat" ^
+curl.exe -X POST "http://127.0.0.1:8001/v1/sessions/demo/chat" ^
   -H "Content-Type: application/json" ^
   -d "{\"message\":\"请总结最近多模态Agent进展\"}"
 预期：
@@ -253,14 +253,14 @@ curl.exe -X POST "http://127.0.0.1:8000/v1/sessions/demo/chat" ^
 HTTP 200
 返回含 session_id, answer, task_runtime
 2.2 会话状态 state
-curl.exe "http://127.0.0.1:8000/v1/sessions/demo/state"
+curl.exe "http://127.0.0.1:8001/v1/sessions/demo/state"
 预期：
 
 HTTP 200
 返回含 task_runtime, action_pending_queue, action_execution_logs
 3) Week B 流式输出（SSE）
 3.1 流式请求
-curl.exe -N -X POST "http://127.0.0.1:8000/v1/sessions/demo/stream" ^
+curl.exe -N -X POST "http://127.0.0.1:8001/v1/sessions/demo/stream" ^
   -H "Content-Type: application/json" ^
   -d "{\"message\":\"请一步步分析并输出执行过程\"}"
 预期（终端持续打印）：
@@ -270,29 +270,29 @@ curl.exe -N -X POST "http://127.0.0.1:8000/v1/sessions/demo/stream" ^
 最终有 event: run_completed
 4) Week B 动作确认闭环（confirm/reject）
 4.1 触发一个可能需要确认的动作
-curl.exe -X POST "http://127.0.0.1:8000/v1/sessions/demo/chat" ^
+curl.exe -X POST "http://127.0.0.1:8001/v1/sessions/demo/chat" ^
   -H "Content-Type: application/json" ^
   -d "{\"message\":\"请帮我生成一份报告并写入文件report.md\"}"
 4.2 查待确认队列
-curl.exe "http://127.0.0.1:8000/v1/sessions/demo/state"
+curl.exe "http://127.0.0.1:8001/v1/sessions/demo/state"
 预期：action_pending_queue 里有 id（如 act_xxx）
 
 4.3 确认执行
-curl.exe -X POST "http://127.0.0.1:8000/v1/sessions/demo/actions/act_xxx/confirm"
+curl.exe -X POST "http://127.0.0.1:8001/v1/sessions/demo/actions/act_xxx/confirm"
 预期：
 
 HTTP 200
 ok: true
 result.status 为 executed 或 failed（至少有明确结果）
 4.4 拒绝执行（可另测一次）
-curl.exe -X POST "http://127.0.0.1:8000/v1/sessions/demo/actions/act_xxx/reject"
+curl.exe -X POST "http://127.0.0.1:8001/v1/sessions/demo/actions/act_xxx/reject"
 预期：
 
 HTTP 200
 result.status: rejected
 5) Week C 统一错误响应验证
 5.1 参数校验错误（422）
-curl.exe -X POST "http://127.0.0.1:8000/v1/sessions/demo/chat" ^
+curl.exe -X POST "http://127.0.0.1:8001/v1/sessions/demo/chat" ^
   -H "Content-Type: application/json" ^
   -d "{\"message\":\"\"}"
 预期：
@@ -300,7 +300,7 @@ curl.exe -X POST "http://127.0.0.1:8000/v1/sessions/demo/chat" ^
 HTTP 422
 返回结构含：ok=false, error_code=MM422_VALIDATION_ERROR
 5.2 动作不存在（404）
-curl.exe -X POST "http://127.0.0.1:8000/v1/sessions/demo/actions/not_exist/reject"
+curl.exe -X POST "http://127.0.0.1:8001/v1/sessions/demo/actions/not_exist/reject"
 预期：
 
 HTTP 404
@@ -313,7 +313,7 @@ API_AUTH_KEY=your_test_key_123
 然后重启 uvicorn。
 
 6.1 不带 key 请求
-curl.exe -X POST "http://127.0.0.1:8000/v1/sessions/demo/chat" ^
+curl.exe -X POST "http://127.0.0.1:8001/v1/sessions/demo/chat" ^
   -H "Content-Type: application/json" ^
   -d "{\"message\":\"hello\"}"
 预期：
@@ -321,7 +321,7 @@ curl.exe -X POST "http://127.0.0.1:8000/v1/sessions/demo/chat" ^
 HTTP 401
 error_code=MM401_UNAUTHORIZED
 6.2 带正确 key 请求
-curl.exe -X POST "http://127.0.0.1:8000/v1/sessions/demo/chat" ^
+curl.exe -X POST "http://127.0.0.1:8001/v1/sessions/demo/chat" ^
   -H "Content-Type: application/json" ^
   -H "X-API-Key: your_test_key_123" ^
   -d "{\"message\":\"hello\"}"
@@ -336,9 +336,9 @@ API_RATE_LIMIT_PER_MIN=2
 
 连续快速发 3 次：
 
-curl.exe -X POST "http://127.0.0.1:8000/v1/sessions/demo/chat" -H "Content-Type: application/json" -H "X-API-Key: your_test_key_123" -d "{\"message\":\"r1\"}"
-curl.exe -X POST "http://127.0.0.1:8000/v1/sessions/demo/chat" -H "Content-Type: application/json" -H "X-API-Key: your_test_key_123" -d "{\"message\":\"r2\"}"
-curl.exe -X POST "http://127.0.0.1:8000/v1/sessions/demo/chat" -H "Content-Type: application/json" -H "X-API-Key: your_test_key_123" -d "{\"message\":\"r3\"}"
+curl.exe -X POST "http://127.0.0.1:8001/v1/sessions/demo/chat" -H "Content-Type: application/json" -H "X-API-Key: your_test_key_123" -d "{\"message\":\"r1\"}"
+curl.exe -X POST "http://127.0.0.1:8001/v1/sessions/demo/chat" -H "Content-Type: application/json" -H "X-API-Key: your_test_key_123" -d "{\"message\":\"r2\"}"
+curl.exe -X POST "http://127.0.0.1:8001/v1/sessions/demo/chat" -H "Content-Type: application/json" -H "X-API-Key: your_test_key_123" -d "{\"message\":\"r3\"}"
 预期：
 
 前两次大概率 200
