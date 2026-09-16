@@ -47,6 +47,21 @@ def action_confirm_required() -> Iterator[None]:
         _force_action_confirm_ctx.reset(token)
 
 
+@contextmanager
+def request_scope(request_id: str = "", session_hint: str = "") -> Iterator[None]:
+    """在一次调用范围内覆盖 request_id / session_hint，空值保持外层。"""
+    tokens = []
+    if request_id:
+        tokens.append((_request_id_ctx, _request_id_ctx.set(request_id)))
+    if session_hint:
+        tokens.append((_session_hint_ctx, _session_hint_ctx.set(session_hint)))
+    try:
+        yield
+    finally:
+        for var, token in reversed(tokens):
+            var.reset(token)
+
+
 def log_event(node: str, event: str, retry_count: int = 0, meta: Optional[Dict[str, Any]] = None) -> None:
     extra = dict(meta or {})
     request_id = get_request_id()

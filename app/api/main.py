@@ -26,7 +26,7 @@ from app.api.routes.sessions import router as sessions_router
 from app.api.routes.actions import router as actions_router
 from app.api.exceptions import ApiError
 from app.api.middleware import FixedWindowRateLimiter
-from runtime_context import log_event, set_request_id, set_session_hint
+from runtime_context import log_event, set_request_id
 from mcp_tools.factory import create_mcp
 from mcp_tools.registry import DSH_HTTP_TOOL_NAMES
 from contextlib import asynccontextmanager
@@ -71,8 +71,6 @@ def create_api_app() -> FastAPI:
         start = time.perf_counter()
         request_id = request.headers.get("X-Request-Id") or uuid.uuid4().hex[:16]
         set_request_id(request_id)
-        session_hint = request.headers.get("X-Session-Id") or request.headers.get("mcp-session-id") or ""
-        set_session_hint(session_hint)
         path = request.url.path
 
         def _json_error(status_code: int, error_code: str, message: str, detail: dict | None = None):

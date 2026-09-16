@@ -12,5 +12,7 @@
         url: "http://127.0.0.1:8001/v1/mcp"
         headers:
           X-API-Key: !!js process.env.API_AUTH_KEY
+          # 可选：把 dsh 这一路的动作/状态固定到一个 Python 会话；不填则退回 mcp-session-id
+          # X-Session-Id: dsh-web
         toolCallTimeoutMs: 180000
         failOnStartupError: true

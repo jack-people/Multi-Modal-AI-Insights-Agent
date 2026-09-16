@@ -4,8 +4,10 @@ from collections.abc import Callable, Sequence
 from functools import wraps
 from typing import Any
 
+from mcp.server.lowlevel.server import request_ctx
+
 from mcp_tools.service import McpService
-from runtime_context import action_confirm_required
+from runtime_context import action_confirm_required, request_scope
 
 DSH_TOOL_NAMES: tuple[str, ...] = (
     "healthz",
@@ -40,12 +42,30 @@ DSH_HTTP_TOOL_NAMES: tuple[str, ...] = DSH_TOOL_NAMES + PAPER_TOOL_NAMES
 FULL_TOOL_NAMES: tuple[str, ...] = DSH_TOOL_NAMES + CORE_CHAT_TOOL_NAMES + PAPER_TOOL_NAMES + tuple(ALIASES)
 
 
+def _mcp_request_meta() -> tuple[str, str]:
+    """从当前 MCP 请求取 (request_id, session_hint)。
+
+    streamable-http 的每次 tools/call 在 session manager 自己的任务里执行，FastAPI
+    middleware 写的 ContextVar 传不过来，所以要在这里读 request_ctx 里的真实 HTTP 头。
+    stdio / 直接调用时没有 HTTP 头，返回空让外层缺省生效。
+    """
+    try:
+        rc = request_ctx.get()
+    except LookupError:
+        return "", ""
+    headers = getattr(getattr(rc, "request", None), "headers", None) or {}
+    request_id = headers.get("x-request-id") or str(rc.request_id)
+    session_hint = headers.get("x-session-id") or headers.get("mcp-session-id") or ""
+    return request_id, session_hint
+
+
 def _mcp_guard(fn: Callable[..., dict[str, Any]]) -> Callable[..., dict[str, Any]]:
-    """MCP 入口一律禁止 action_* 自动执行，统一走待确认队列。"""
+    """MCP 入口：按本次请求对齐 request_id / session，并禁止 action_* 自动执行。"""
 
     @wraps(fn)
     def wrapped(*args: Any, **kwargs: Any) -> dict[str, Any]:
-        with action_confirm_required():
+        request_id, session_hint = _mcp_request_meta()
+        with request_scope(request_id, session_hint), action_confirm_required():
             return fn(*args, **kwargs)
 
     return wrapped
