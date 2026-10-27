@@ -23,9 +23,10 @@ python mcp_server.py
 - `get_state(session_id)`
 - `action_request_write_file(session_id, filename, content)`
 - `action_request_email_draft(session_id, recipient, subject, body)`
-- `action_request_shell_command(session_id, command)`
 - `confirm_action(session_id, action_id)`
 - `reject_action(session_id, action_id)`
+
+shell 不在 MCP 工具里。模型可以在 Streamlit / API 的对话里申请命令，但只有人在 Streamlit 点击「确认执行」，或调用 `POST /v1/sessions/{session_id}/actions/{action_id}/confirm`，命令才会跑。MCP 的 `confirm_action` 碰到 shell 会返回 `MM403_SHELL_HUMAN_ONLY`。
 
 分组别名（推荐前端按组接入）：
 
@@ -36,7 +37,6 @@ python mcp_server.py
 - `session_get_state(...)`
 - `actions_request_write_file(...)`
 - `actions_request_email_draft(...)`
-- `actions_request_shell_command(...)`
 - `actions_confirm(...)`
 - `actions_reject(...)`
 
@@ -88,8 +88,7 @@ python mcp_server.py
 
 1) 先调用：
 - `action_request_write_file` 或
-- `action_request_email_draft` 或
-- `action_request_shell_command`
+- `action_request_email_draft`
 
 2) 记录返回中的 `action_id`
 

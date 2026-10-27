@@ -1,5 +1,8 @@
 RISK_ORDER = {"none": 0, "low": 1, "medium": 2, "high": 3}
 
+# shell 不进 MCP。只在 Streamlit 按钮或 API confirm/reject 之后执行。
+SHELL_ACTION_NAME = "action_run_shell_command"
+
 
 def normalize_risk(risk: str) -> str:
     value = (risk or "high").strip().lower()

@@ -1,3 +1,4 @@
+import json
 import os
 import tempfile
 import unittest
@@ -48,6 +49,21 @@ class ActionsRuntimeTests(unittest.TestCase):
                 self.assertTrue(os.path.exists(os.path.join(td, "action_outputs", "report.md")))
             finally:
                 os.chdir(old_cwd)
+
+    @patch("tools._allow_auto_execute", return_value=True)
+    @patch("tools.append_audit_log")
+    @patch("tools.log_event")
+    @patch("actions.handlers.subprocess.run")
+    def test_shell_tool_never_auto_executes(self, run, _log, _audit, _allow):
+        from tools import action_run_shell_command
+
+        raw = action_run_shell_command.invoke({"command": "echo hi"})
+        payload = json.loads(raw)
+        data = json.loads(payload["data"])
+        self.assertEqual(data["status"], "pending_confirmation")
+        self.assertTrue(data["requires_confirmation"])
+        self.assertEqual(data["confirm_payload"]["command"], "echo hi")
+        run.assert_not_called()
 
 
 if __name__ == "__main__":

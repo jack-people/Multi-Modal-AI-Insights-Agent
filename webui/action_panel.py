@@ -21,6 +21,15 @@ def render_action_sidebar_sections(
             )
             if item.get("message"):
                 st.write(item["message"])
+            command = ""
+            payload = item.get("confirm_payload") or {}
+            if isinstance(payload, dict):
+                command = str(payload.get("command") or "").strip()
+            if not command:
+                command = str(item.get("query") or "").strip()
+            if item.get("action") == "action_run_shell_command" and command:
+                st.caption("确认后将在本机执行这条命令")
+                st.code(command)
 
             col1, col2 = st.columns(2)
             with col1:

@@ -1,6 +1,6 @@
 {
   "suite": "core_10_cases",
-  "description": "覆盖 local/api/mcp 的最小回归集（10条）",
+  "description": "覆盖 local/api/mcp 的最小回归集。shell 只走 local（同一套 AgentRunner.confirm），不走 MCP。",
   "cases": [
     {
       "id": "local_healthz",
@@ -67,22 +67,6 @@
       "query": "multimodal agent benchmark",
       "source": "web",
       "expect": { "contains_keys": ["source"] }
-    },
-    {
-      "id": "mcp_request_reject_shell",
-      "entry": "mcp",
-      "action": "request_shell_action",
-      "session_id": "h_mcp",
-      "command": "dir C:\\",
-      "expect": { "ok": true, "contains_keys": ["action_id"] }
-    },
-    {
-      "id": "mcp_reject_shell",
-      "entry": "mcp",
-      "action": "reject_action",
-      "session_id": "h_mcp",
-      "action_id": "{{last_action_id}}",
-      "expect": { "ok": true, "action_status_in": ["rejected"] }
     }
   ]
 }
