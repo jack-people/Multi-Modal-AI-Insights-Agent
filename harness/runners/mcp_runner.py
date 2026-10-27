@@ -33,11 +33,6 @@ class McpRunner(HarnessRunner):
                 )
             elif action == "state":
                 payload = mcp_server.get_state(session_id=session_id)
-            elif action == "request_shell_action":
-                payload = mcp_server.action_request_shell_command(
-                    session_id=session_id,
-                    command=str(case.get("command", "")),
-                )
             elif action == "confirm_action":
                 action_id = str(case.get("action_id") or context.get("last_action_id", ""))
                 payload = mcp_server.confirm_action(session_id=session_id, action_id=action_id)

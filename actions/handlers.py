@@ -3,6 +3,8 @@ import os
 import subprocess
 import time
 
+from .policy import SHELL_ACTION_NAME
+
 
 def _safe_output_path(filename: str) -> str:
     clean = (filename or "").strip().replace("\\", "/")
@@ -67,6 +69,6 @@ def execute_confirmed_action(action_name: str, payload: dict) -> dict:
             payload.get("subject", ""),
             payload.get("body", ""),
         )
-    if action_name == "action_run_shell_command":
+    if action_name == SHELL_ACTION_NAME:
         return execute_shell_command(payload.get("command", ""))
     return {"ok": False, "message": f"未知动作: {action_name}", "output_path": ""}

@@ -17,7 +17,7 @@ from config import (
     ACTION_AUTO_EXECUTE_MAX_RISK,
 )
 from runtime_context import log_event, is_force_action_confirm
-from actions import append_audit_log, should_auto_execute, execute_confirmed_action
+from actions import SHELL_ACTION_NAME, append_audit_log, should_auto_execute, execute_confirmed_action
 
 HTTP_SESSION = requests.Session()
 HTTP_SESSION.trust_env = DIFY_HTTP_TRUST_ENV
@@ -432,47 +432,17 @@ def action_create_email_draft(recipient: str, subject: str, body: str) -> str:
 @tool
 def action_run_shell_command(command: str) -> str:
     """
-    高风险动作占位工具：默认不执行真实命令，返回待确认。
+    申请在本机执行 shell。不会自动执行。
+    人在 Streamlit 点击「确认执行」，或调用 API confirm 之后才会运行。
     """
-    source = "action_run_shell_command"
+    source = SHELL_ACTION_NAME
     risk = "high"
     query = command
     confirm_payload = {"command": command}
-    if not _allow_auto_execute(risk):
-        message = "高风险动作默认不自动执行。请用户明确确认后再执行。"
-        append_audit_log(source, risk, "pending_confirmation", message, {"command": command})
-        log_event(source, "blocked", meta={"reason": "high_risk_requires_confirmation"})
-        return _pending_action_response(source, risk, query, message, confirm_payload)
-
-    ok, message, _, command_output = _execute_action_or_error(source, confirm_payload, default_error="高风险动作执行失败")
-    if not ok:
-        append_audit_log(source, risk, "failed", message, {"command": command})
-        return _tool_result(
-            ok=False,
-            source=source,
-            query=query,
-            data=_action_data(
-                source,
-                risk,
-                "failed",
-                message,
-                command_output=command_output,
-            ),
-            error=message,
-        )
-    append_audit_log(source, risk, "executed", message, {"command": command})
-    return _tool_result(
-        ok=True,
-        source=source,
-        query=query,
-        data=_action_data(
-            source,
-            risk,
-            "executed",
-            message,
-            command_output=command_output,
-        ),
-    )
+    message = "shell 不会自动执行。请在 Streamlit 点击确认，或通过 API confirm 接口由人确认。"
+    append_audit_log(source, risk, "pending_confirmation", message, {"command": command})
+    log_event(source, "blocked", meta={"reason": "shell_requires_human_confirm"})
+    return _pending_action_response(source, risk, query, message, confirm_payload)
 
 # tools = [search_local_arxiv_db, search_web_news,search_dify_arxiv_db]
 tools = [

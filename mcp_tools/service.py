@@ -3,6 +3,7 @@ from __future__ import annotations
 import json
 from typing import Any
 
+from actions import SHELL_ACTION_NAME
 from app.api.deps import get_agent_runner
 from app.api.schemas.chat import ChatInputs, ChatRequest
 from app.service.agent_runner import AgentRunner
@@ -195,23 +196,11 @@ class McpService:
             confirm_payload={"recipient": recipient, "subject": subject, "body": body},
         )
 
-    def action_request_shell_command(
-        self,
-        session_id: str | None = None,
-        command: str = "",
-    ) -> dict[str, Any]:
-        """创建命令执行待确认动作（高风险）。"""
-        return self._request_action(
-            session_id,
-            action_name="action_run_shell_command",
-            risk="high",
-            query=command,
-            message="MCP 请求执行命令，属于高风险动作，等待确认。",
-            confirm_payload={"command": command},
-        )
-
     def _decide_action(self, session_id: str | None, action_id: str, approve: bool) -> dict[str, Any]:
         sid = resolve_session_id(session_id)
+        blocked = self._shell_requires_human(sid, action_id)
+        if blocked is not None:
+            return blocked
         result = self.runner.confirm_action(session_id=sid, action_id=action_id, approve=approve)
         if not result.get("ok", False):
             result = {
@@ -221,6 +210,22 @@ class McpService:
                 "detail": {"session_id": sid, "action_id": action_id},
             }
         return self._out(result, session_id=sid)
+
+    def _shell_requires_human(self, session_id: str, action_id: str) -> dict[str, Any] | None:
+        state = self.runner.get_state(session_id)
+        queue = state.get("action_pending_queue", []) if isinstance(state, dict) else []
+        target = next((row for row in queue if str(row.get("id")) == str(action_id)), None)
+        if not target or target.get("action") != SHELL_ACTION_NAME:
+            return None
+        return self._out(
+            {
+                "ok": False,
+                "error_code": "MM403_SHELL_HUMAN_ONLY",
+                "message": "shell 只能在 Streamlit 点击确认，或调用 API 的 confirm/reject。MCP 不能代为确认或拒绝。",
+                "detail": {"session_id": session_id, "action_id": action_id},
+            },
+            session_id=session_id,
+        )
 
     def confirm_action(self, session_id: str | None = None, action_id: str = "") -> dict[str, Any]:
         """确认执行待确认动作。"""

@@ -15,7 +15,6 @@ DSH_TOOL_NAMES: tuple[str, ...] = (
     "get_state",
     "action_request_write_file",
     "action_request_email_draft",
-    "action_request_shell_command",
     "confirm_action",
     "reject_action",
 )
@@ -34,7 +33,6 @@ ALIASES: dict[str, str] = {
     "actions_confirm": "confirm_action",
     "actions_request_write_file": "action_request_write_file",
     "actions_request_email_draft": "action_request_email_draft",
-    "actions_request_shell_command": "action_request_shell_command",
     "actions_reject": "reject_action",
 }
 

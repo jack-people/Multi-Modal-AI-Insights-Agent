@@ -61,22 +61,6 @@
       "message": "请一步步推理并给出结论",
       "max_events": 80,
       "expect": { "ok": true, "contains_keys": ["events", "event_count"], "max_latency_ms": 120000 }
-    },
-    {
-      "id": "gate_mcp_request_shell",
-      "entry": "mcp",
-      "action": "request_shell_action",
-      "session_id": "gate_mcp",
-      "command": "dir C:\\",
-      "expect": { "ok": true, "contains_keys": ["action_id"] }
-    },
-    {
-      "id": "gate_mcp_confirm_shell",
-      "entry": "mcp",
-      "action": "confirm_action",
-      "session_id": "gate_mcp",
-      "action_id": "{{last_action_id}}",
-      "expect": { "ok": true, "action_status_in": ["executed", "failed"] }
     }
   ]
 }
